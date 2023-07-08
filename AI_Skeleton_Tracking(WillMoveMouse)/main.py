@@ -1,60 +1,44 @@
-# TechVidvan Human pose estimator
-# import necessary packages
-import win32api, win32con, win32gui
 import cv2
 import mediapipe as mp
-import numpy as np
-import pyautogui
-# initialize Pose estimator
-mp_drawing = mp.solutions.drawing_utils
+
+# 初始化 Mediapipe Pose
 mp_pose = mp.solutions.pose
-screen_size = (1920, 1080)  # 螢幕的寬度和高度，根據實際情況調整
-# 建立 OpenCV 視窗
-cv2.namedWindow("Screen", cv2.WINDOW_NORMAL)
-cv2.resizeWindow("Screen", screen_size[0] // 2, screen_size[1] // 2)
-screen_width, screen_height = pyautogui.size()
-left = int((screen_width - 800) / 2)
-top = int((screen_height - 600) / 2)
-pose = mp_pose.Pose(
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5)
+mp_drawing = mp.solutions.drawing_utils
 
-# create capture object
+# 初始化視訊捕獲對象
+cap = cv2.VideoCapture(0)  # 可以根據需要更改視訊鏡頭的索引
 
-movemouse = False
-while True:
-    img = pyautogui.screenshot()
-    frame = np.array(img)
-    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-    # read frame from capture object
+# 初始化 Pose 物件
+with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
 
-    try:
-        if cv2.waitKey(1) == ord('f'):
-            movemouse = True
-        # convert the frame to RGB format
-        RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # process the RGB frame to get the result
-        results = pose.process(RGB)
+    while True:
+        # 讀取每一幀視訊
+        ret, frame = cap.read()
 
-        print(results.pose_landmarks)
+        # 將視訊幀轉換為 RGB 格式
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # 轉換為 Mediapipe 支持的格式
+        img_height, img_width, _ = frame.shape
+        input_img = cv2.resize(frame_rgb, (img_width, img_height))
+
+        # 執行骨架追蹤
+        results = pose.process(input_img)
+
+        # 在視訊畫面上繪製骨架
         if results.pose_landmarks:
-    # 獲取頭部關鍵點的座標
-            head_landmark = results.pose_landmarks.landmark[mp_pose.PoseLandmark.NOSE]
-            head_x = int(head_landmark.x * frame.shape[1])
-            head_y = int(head_landmark.y * frame.shape[0])
-    
-            # 移動滑鼠到頭部座標
-            pyautogui.moveTo(head_x, head_y)
-           
-        # draw detected skeleton on the frame
-        mp_drawing.draw_landmarks(
-            frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+            mp_drawing.draw_landmarks(
+                frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-        # show the final output
-        cv2.imshow('人體骨架追蹤', frame)
-    except:
-        break
-    if cv2.waitKey(1) == ord('q'):
-        break
+        # 顯示視訊畫面
+        cv2.imshow('AI Skeleton Tracking', frame)
+
+        # 按下 'q' 鍵退出迴圈
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+# 釋放視訊捕獲對象
+cap.release()
+
+# 關閉視窗
 cv2.destroyAllWindows()
